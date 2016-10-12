@@ -152,6 +152,7 @@ typedef struct {
     hnd_t hin;
     hnd_t hout;
     FILE *qpfile;
+    FILE *qpmap;
     FILE *tcfile_out;
     double timebase_convert_multiplier;
     int i_pulldown;
@@ -392,6 +393,8 @@ int main( int argc, char **argv )
         fclose( opt.tcfile_out );
     if( opt.qpfile )
         fclose( opt.qpfile );
+    if( opt.qpmap )
+        fclose( opt.qpmap );
 
 #ifdef _WIN32
     SetConsoleTitleW( org_console_title );
@@ -760,6 +763,7 @@ static void help( x264_param_t *defaults, int longhelp )
         "                              QP is optional (none lets x264 choose). Frametypes: I,i,K,P,B,b.\n"
         "                                  K=<I or i> depending on open-gop setting\n"
         "                              QPs are restricted by qpmin/qpmax.\n" );
+    H2( "      --qpmap <string>       file name of qpmap\n");
     H1( "\n" );
     H1( "Analysis:\n" );
     H1( "\n" );
@@ -975,7 +979,8 @@ typedef enum
     OPT_DTS_COMPRESSION,
     OPT_OUTPUT_CSP,
     OPT_INPUT_RANGE,
-    OPT_RANGE
+    OPT_RANGE,
+    OPT_QPMAP
 } OptionsOPT;
 
 static char short_options[] = "8A:B:b:f:hI:i:m:o:p:q:r:t:Vvw";
@@ -1081,6 +1086,7 @@ static struct option long_options[] =
     { "cplxblur",    required_argument, NULL, 0 },
     { "zones",       required_argument, NULL, 0 },
     { "qpfile",      required_argument, NULL, OPT_QPFILE },
+    { "qpmap",       required_argument, NULL, OPT_QPMAP },
     { "threads",     required_argument, NULL, 0 },
     { "lookahead-threads", required_argument, NULL, 0 },
     { "sliced-threads",    no_argument, NULL, 0 },
@@ -1447,6 +1453,16 @@ static int parse( int argc, char **argv, x264_param_t *param, cli_opt_t *opt )
                 {
                     x264_cli_log( "x264", X264_LOG_ERROR, "qpfile incompatible with non-regular file `%s'\n", optarg );
                     fclose( opt->qpfile );
+                    return -1;
+                }
+                break;
+            case OPT_QPMAP:
+                opt->qpmap = x264_fopen( optarg, "rb" );
+                FAIL_IF_ERROR( !opt->qpmap, "can't open qpmap `%s'\n", optarg );
+                if( !x264_is_regular_file( opt->qpmap ) )
+                {
+                    x264_cli_log( "x264", X264_LOG_ERROR, "qpmap incompatible with non-regular file `%s'\n", optarg );
+                    fclose( opt->qpmap );
                     return -1;
                 }
                 break;
@@ -1874,6 +1890,14 @@ static int encode( x264_param_t *param, cli_opt_t *opt )
     double  pulldown_pts = 0;
     int     retval = 0;
 
+    signed char* mb_offset_array_temp;
+    float* mb_offset_array;
+    unsigned int widthInMBs = ((param->i_width + 15) & ~15) >> 4;
+    unsigned int heightInMBs = ((param->i_height + 15) & ~15) >> 4;
+    mb_offset_array_temp = (signed char*)malloc(widthInMBs * heightInMBs * sizeof(signed char));
+    mb_offset_array = (float*)malloc(widthInMBs * heightInMBs * sizeof(float));
+    //x264_cli_log( "x264", X264_LOG_WARNING, "total MB: %d\n", widthInMBs * heightInMBs );
+
     opt->b_progress &= param->i_log_level < X264_LOG_DEBUG;
 
     /* set up pulldown */
@@ -1954,6 +1978,32 @@ static int encode( x264_param_t *param, cli_opt_t *opt )
         if( opt->qpfile )
             parse_qpfile( opt, &pic, i_frame + opt->i_seek );
 
+        memset(mb_offset_array_temp, 0, widthInMBs * heightInMBs);
+        fseek(opt->qpmap, 0, SEEK_SET);
+        size_t numElemsRead = fread(mb_offset_array_temp, widthInMBs * heightInMBs, 1, opt->qpmap);
+        if (numElemsRead != 1)
+        {
+            x264_cli_log( "x264", X264_LOG_WARNING, "qpmap read failed\n" );
+        }
+        
+        for(int i = 0; i < widthInMBs * heightInMBs;i++)
+        {
+            mb_offset_array[i] = (float)mb_offset_array_temp[i];
+        }
+        //x264_cli_log( "x264", X264_LOG_WARNING, "qpmap center = %d\n", mb_offset_array[10] );
+        pic.prop.quant_offsets = mb_offset_array;
+        /**
+        memset(mb_offset_array, 0, 8160);
+        for(int i = 0;i < 15;i++)
+        {
+            for(int j = 0;j < 15; j++)
+            {
+                mb_offset_array[i*120 + j] = -15;
+            }
+        }
+        pic.prop.quant_offsets = mb_offset_array;
+        **/
+
         prev_dts = last_dts;
         i_frame_size = encode_frame( h, opt->hout, &pic, &last_dts );
         if( i_frame_size < 0 )
@@ -2031,5 +2081,7 @@ fail:
                  (double) i_file * 8 / ( 1000 * duration ) );
     }
 
+    free(mb_offset_array);
+    free(mb_offset_array_temp);
     return retval;
 }
