@@ -74,10 +74,13 @@ int main( int argc, char **argv )
     param.b_vfr_input = 0;
     param.b_repeat_headers = 1;
     param.b_annexb = 1;
+    param.analyse.b_ssim = 1;
+    param.rc.i_rc_method = X264_RC_CRF;
+    param.rc.f_rf_constant = 23;
 
     /* Apply profile restrictions. */
-    if( x264_param_apply_profile( &param, "high" ) < 0 )
-        goto fail;
+    /*if( x264_param_apply_profile( &param, "high" ) < 0 )
+        goto fail;*/
 
     if( x264_picture_alloc( &pic, param.i_csp, param.i_width, param.i_height ) < 0 )
         goto fail;
@@ -104,7 +107,13 @@ int main( int argc, char **argv )
             break;
 
         pic.i_pts = i_frame;
+        /*if(i_frame == 450)
+        {
+            param.rc.f_rf_constant = 40;
+            x264_encoder_reconfig( h, &param);
+        }*/
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
+        fprintf(stderr, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
