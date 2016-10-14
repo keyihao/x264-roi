@@ -31,6 +31,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <x264.h>
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define FAIL_IF_ERROR( cond, ... )\
 do\
@@ -41,6 +44,96 @@ do\
         goto fail;\
     }\
 } while( 0 )
+
+int gcd ( int a, int b )
+{
+  int c;
+  while ( a != 0 ) {
+     c = a; a = b%a;  b = c;
+  }
+  return b;
+}
+
+void print_qpmap( int width, int height, float* qpmap)
+{
+    int width_in_mb = (int)ceil(width / 16.0);
+    int height_in_mb = (int)ceil(height / 16.0);
+
+    for(int i = 0; i < height_in_mb; i++)
+    {
+        for(int j = 0; j < width_in_mb; j++)
+        {
+            fprintf( stderr, "%.0f", qpmap[i*width_in_mb + j]);
+        }
+        fprintf( stderr, "\n");
+    }
+    return;
+}
+
+float* get_qpmap( int width, int height, double roi_size, float qpdelta )
+{
+    int width_in_mb = (int)ceil(width / 16.0);
+    int height_in_mb = (int)ceil(height / 16.0);
+    int width_height_mb_gcd = gcd(width_in_mb, height_in_mb);
+    int min_width = width_in_mb / width_height_mb_gcd;
+    int min_height = height_in_mb / width_height_mb_gcd;
+    int qpmap_length = width_in_mb * height_in_mb;
+
+    float* qpmap;
+    qpmap = (float*)malloc(qpmap_length * sizeof(float));
+
+    if(qpmap == NULL)
+    {
+        fprintf( stderr, "qpmap malloc failed\n" );
+    }
+
+    for(int i = 0; i < height_in_mb; i++)
+    {
+        for(int j = 0; j < width_in_mb; j++)
+        {
+            qpmap[i*width_in_mb + j] = qpdelta;
+        }
+    }
+
+    if((roi_size - 0.0) < 1e-6)
+    {
+        return qpmap;
+    } 
+
+    int roi_in_mb = (int)round(roi_size * qpmap_length);
+    double roi_factor = sqrt(roi_in_mb * 1.0 / (min_width * min_height));
+    int roi_width_in_mb = (int)floor(roi_factor * min_width);
+    int roi_height_in_mb = (int)floor(roi_factor * min_height);
+    int roi_mb_remain = roi_in_mb - roi_width_in_mb * roi_height_in_mb;
+    int remain_row = (int)ceil(roi_mb_remain * 1.0 / roi_width_in_mb);
+    int roi_total_row = roi_height_in_mb + remain_row;
+    int column_in_last_row = roi_mb_remain % roi_width_in_mb;
+    int start_row_index = height_in_mb / 2 - (roi_total_row / 2 + roi_total_row % 2);
+    int start_column_index = width_in_mb / 2 - (roi_width_in_mb / 2 + roi_width_in_mb % 2);
+
+    for(int i = 0; i < roi_total_row; i++)
+    {
+        for(int j = 0; j < roi_width_in_mb; j++)
+        {
+            if( (i == roi_total_row - 1) && (j == column_in_last_row) && (column_in_last_row != roi_width_in_mb) && (column_in_last_row != 0))
+                break;
+            qpmap[(start_row_index + i)*width_in_mb + start_column_index + j] = 0;
+        }
+    }
+
+    fprintf( stderr, "min_width: %d\n", min_width);
+    fprintf( stderr, "min_height: %d\n", min_height);
+    fprintf( stderr, "roi_factor: %f\n", roi_factor);
+    fprintf( stderr, "roi_width_in_mb: %d\n", roi_width_in_mb);
+    fprintf( stderr, "roi_height_in_mb: %d\n", roi_height_in_mb);
+    fprintf( stderr, "roi_mb_remain: %d\n", roi_mb_remain);
+    fprintf( stderr, "roi_total_row: %d\n", roi_total_row);
+    fprintf( stderr, "column_in_last_row: %d\n", column_in_last_row);
+    fprintf( stderr, "start_row_index: %d\n", start_row_index);
+    fprintf( stderr, "start_column_index: %d\n", start_column_index);
+
+    return qpmap;
+}
 
 int main( int argc, char **argv )
 {
@@ -62,6 +155,10 @@ int main( int argc, char **argv )
 
     FAIL_IF_ERROR( !(argc > 1), "Example usage: example 352x288 <input.yuv >output.h264\n" );
     FAIL_IF_ERROR( 2 != sscanf( argv[1], "%dx%d", &width, &height ), "resolution not specified or incorrect\n" );
+
+    float* qpmap = get_qpmap(width, height, 0.99, 5);
+    print_qpmap(width, height, qpmap);
+    return 0;
 
     /* Get default params for preset/tuning */
     if( x264_param_default_preset( &param, "medium", NULL ) < 0 )
