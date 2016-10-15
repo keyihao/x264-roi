@@ -120,7 +120,7 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
             qpmap[(start_row_index + i)*width_in_mb + start_column_index + j] = 0;
         }
     }
-
+    /**
     fprintf( stderr, "min_width: %d\n", min_width);
     fprintf( stderr, "min_height: %d\n", min_height);
     fprintf( stderr, "roi_factor: %f\n", roi_factor);
@@ -131,7 +131,7 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
     fprintf( stderr, "column_in_last_row: %d\n", column_in_last_row);
     fprintf( stderr, "start_row_index: %d\n", start_row_index);
     fprintf( stderr, "start_column_index: %d\n", start_column_index);
-
+    **/
     return qpmap;
 }
 
@@ -156,9 +156,10 @@ int main( int argc, char **argv )
     FAIL_IF_ERROR( !(argc > 1), "Example usage: example 352x288 <input.yuv >output.h264\n" );
     FAIL_IF_ERROR( 2 != sscanf( argv[1], "%dx%d", &width, &height ), "resolution not specified or incorrect\n" );
 
-    float* qpmap = get_qpmap(width, height, 0.99, 5);
-    print_qpmap(width, height, qpmap);
-    return 0;
+    float* qpmap;
+    qpmap = get_qpmap(width, height, 0.2, 20);
+    //print_qpmap(width, height, qpmap);
+    //return 0;
 
     /* Get default params for preset/tuning */
     if( x264_param_default_preset( &param, "medium", NULL ) < 0 )
@@ -168,6 +169,10 @@ int main( int argc, char **argv )
     param.i_csp = X264_CSP_I420;
     param.i_width  = width;
     param.i_height = height;
+    param.i_bframe = 0;
+    param.i_frame_reference = 1;
+    param.i_keyint_max = 48;
+    param.b_intra_refresh = 1;
     param.b_vfr_input = 0;
     param.b_repeat_headers = 1;
     param.b_annexb = 1;
@@ -204,11 +209,12 @@ int main( int argc, char **argv )
             break;
 
         pic.i_pts = i_frame;
-        /*if(i_frame == 450)
+        if(i_frame == 450)
         {
-            param.rc.f_rf_constant = 40;
-            x264_encoder_reconfig( h, &param);
-        }*/
+            free(qpmap);
+            qpmap = get_qpmap(width, height, 0.75, 5);
+        }
+        pic.prop.quant_offsets = qpmap;
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
         fprintf(stderr, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
         if( i_frame_size < 0 )
@@ -234,6 +240,7 @@ int main( int argc, char **argv )
 
     x264_encoder_close( h );
     x264_picture_clean( &pic );
+    free(qpmap);
     return 0;
 
 #undef fail
