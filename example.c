@@ -35,6 +35,43 @@
 #include <stdlib.h>
 #include <string.h>
 
+double b_target = 15;
+double q_target = 0.05;
+const double time_slot_length = 1;
+const int fps = 30;
+double alpha = 1;
+double psir = 10;
+double psid = 10;
+double rk = 1;
+double dk = 1;
+double bk = 0;
+double qk = 0;
+
+double utility(double bk, double qk)
+{
+    return ((1.0 / (1.0+bk)) + alpha * (1.0 / (1.0+qk)));
+}
+
+double deltab(double bk, double qk)
+{
+    return (utility(bk, qk) - utility(b_target, qk)) ;
+}
+
+double deltaq(double bk, double qk)
+{
+    return (utility(bk, qk) - utility(bk, q_target));
+}
+
+double grk(double bk, double qk)
+{
+    return ( (2.0 * exp(psir * deltab(bk, qk))) / (1.0 + exp(psir * deltab(bk, qk))) );
+}
+
+double gdk(double bk, double qk)
+{
+    return ( (2.0 * exp(psid * deltaq(bk, qk))) / (1.0 + exp(psid * deltaq(bk, qk))) );
+}
+
 #define FAIL_IF_ERROR( cond, ... )\
 do\
 {\
@@ -52,6 +89,11 @@ int gcd ( int a, int b )
      c = a; a = b%a;  b = c;
   }
   return b;
+}
+
+void controller(double bk, double qk)
+{
+
 }
 
 void print_qpmap( int width, int height, float* qpmap)
@@ -156,6 +198,7 @@ int main( int argc, char **argv )
     FAIL_IF_ERROR( !(argc > 1), "Example usage: example 352x288 <input.yuv >output.h264\n" );
     FAIL_IF_ERROR( 2 != sscanf( argv[1], "%dx%d", &width, &height ), "resolution not specified or incorrect\n" );
 
+    const double frames_interval = time_slot_length * fps;
     float* qpmap;
     qpmap = get_qpmap(width, height, 0.2, 20);
     //print_qpmap(width, height, qpmap);
@@ -172,13 +215,15 @@ int main( int argc, char **argv )
     param.i_bframe = 0;
     param.i_frame_reference = 1;
     param.i_keyint_max = 48;
+    param.i_sync_lookahead = 0;
     param.b_intra_refresh = 1;
     param.b_vfr_input = 0;
     param.b_repeat_headers = 1;
     param.b_annexb = 1;
     param.analyse.b_ssim = 1;
     param.rc.i_rc_method = X264_RC_CRF;
-    param.rc.f_rf_constant = 23;
+    param.rc.f_rf_constant = 10;
+    param.rc.i_lookahead = 0;
 
     /* Apply profile restrictions. */
     /*if( x264_param_apply_profile( &param, "high" ) < 0 )
@@ -197,6 +242,9 @@ int main( int argc, char **argv )
 
     int luma_size = width * height;
     int chroma_size = luma_size / 4;
+    int frame_count = 1;
+    int total_bytes = 0;
+    double total_dssim = 0;
     /* Encode frames */
     for( ;; i_frame++ )
     {
@@ -209,18 +257,22 @@ int main( int argc, char **argv )
             break;
 
         pic.i_pts = i_frame;
-        if(i_frame == 450)
+        /**
+        if(frame_count == frames_interval)
         {
             free(qpmap);
             qpmap = get_qpmap(width, height, 0.75, 5);
-        }
+        }**/
         pic.prop.quant_offsets = qpmap;
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
-        fprintf(stderr, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
         {
+            fprintf(stderr, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            frame_count++;
+            total_bytes += i_frame_size;
+            total_dssim += ((1 - pic_out.prop.f_ssim) / 2);
             if( !fwrite( nal->p_payload, i_frame_size, 1, stdout ) )
                 goto fail;
         }
