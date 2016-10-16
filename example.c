@@ -35,17 +35,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-double b_target = 15;
+double b_target = 25;
 double q_target = 0.05;
 const double time_slot_length = 1;
 const int fps = 30;
 double alpha = 1;
 double psir = 10;
 double psid = 10;
-double rk = 1;
-double dk = 1;
-double bk = 0;
-double qk = 0;
+double global_rk = 1;
+double global_dk = 1;
+//double global_bk = 0;
+//double global_qk = 0;
 
 double utility(double bk, double qk)
 {
@@ -93,7 +93,13 @@ int gcd ( int a, int b )
 
 void controller(double bk, double qk)
 {
-
+    double c_grk = grk(bk, qk);
+    double c_gdk = gdk(bk, qk);
+    fprintf( stderr, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
+    fprintf( stderr, "R(k): %f, D(k): %f\n", global_rk, global_dk);
+    global_rk = c_grk * global_rk;
+    global_dk = c_gdk * global_dk;
+    fprintf( stderr, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
 }
 
 void print_qpmap( int width, int height, float* qpmap)
@@ -200,7 +206,7 @@ int main( int argc, char **argv )
 
     const double frames_interval = time_slot_length * fps;
     float* qpmap;
-    qpmap = get_qpmap(width, height, 0.2, 20);
+    qpmap = get_qpmap(width, height, 1, 1);
     //print_qpmap(width, height, qpmap);
     //return 0;
 
@@ -222,7 +228,7 @@ int main( int argc, char **argv )
     param.b_annexb = 1;
     param.analyse.b_ssim = 1;
     param.rc.i_rc_method = X264_RC_CRF;
-    param.rc.f_rf_constant = 10;
+    param.rc.f_rf_constant = 23;
     param.rc.i_lookahead = 0;
 
     /* Apply profile restrictions. */
@@ -257,12 +263,20 @@ int main( int argc, char **argv )
             break;
 
         pic.i_pts = i_frame;
-        /**
+        
         if(frame_count == frames_interval)
         {
+            double bit_rate = ((total_bytes * 8.0 / (1024* 1024)) / (frames_interval * 1.0 / fps)) ;
+            double average_dssim = total_dssim / frames_interval;
+            fprintf(stderr, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
+            controller(bit_rate, average_dssim);
             free(qpmap);
-            qpmap = get_qpmap(width, height, 0.75, 5);
-        }**/
+            qpmap = get_qpmap(width, height, global_rk, global_dk);
+            frame_count = 1;
+            total_bytes = 0;
+            total_dssim = 0;
+        }
+
         pic.prop.quant_offsets = qpmap;
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
         if( i_frame_size < 0 )
