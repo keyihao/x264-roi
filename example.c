@@ -46,6 +46,9 @@ double global_rk = 1;
 double global_dk = 1;
 //double global_bk = 0;
 //double global_qk = 0;
+FILE* input_file;
+FILE* output_file;
+FILE* log_file;
 
 double utility(double bk, double qk)
 {
@@ -96,10 +99,13 @@ void controller(double bk, double qk)
     double c_grk = grk(bk, qk);
     double c_gdk = gdk(bk, qk);
     fprintf( stderr, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
+    fprintf( log_file, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
     fprintf( stderr, "R(k): %f, D(k): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k): %f, D(k): %f\n", global_rk, global_dk);
     global_rk = c_grk * global_rk;
     global_dk = c_gdk * global_dk;
     fprintf( stderr, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
 }
 
 void print_qpmap( int width, int height, float* qpmap)
@@ -112,8 +118,10 @@ void print_qpmap( int width, int height, float* qpmap)
         for(int j = 0; j < width_in_mb; j++)
         {
             fprintf( stderr, "%.0f", qpmap[i*width_in_mb + j]);
+            fprintf( log_file, "%.0f", qpmap[i*width_in_mb + j]);
         }
         fprintf( stderr, "\n");
+        fprintf( log_file, "\n");
     }
     return;
 }
@@ -133,6 +141,19 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
     if(qpmap == NULL)
     {
         fprintf( stderr, "qpmap malloc failed\n" );
+        fprintf( log_file, "qpmap malloc failed\n" );
+    }
+
+    if( abs(roi_size - 1.0) < 1e-6 )
+    {
+        for(int i = 0; i < height_in_mb; i++)
+        {
+            for(int j = 0; j < width_in_mb; j++)
+            {
+                qpmap[i*width_in_mb + j] = 0;
+            }
+        }
+        return qpmap;
     }
 
     for(int i = 0; i < height_in_mb; i++)
@@ -195,14 +216,19 @@ int main( int argc, char **argv )
     x264_nal_t *nal;
     int i_nal;
 
+/**
 #ifdef _WIN32
     _setmode( _fileno( stdin ),  _O_BINARY );
     _setmode( _fileno( stdout ), _O_BINARY );
     _setmode( _fileno( stderr ), _O_BINARY );
 #endif
+**/
 
     FAIL_IF_ERROR( !(argc > 1), "Example usage: example 352x288 <input.yuv >output.h264\n" );
     FAIL_IF_ERROR( 2 != sscanf( argv[1], "%dx%d", &width, &height ), "resolution not specified or incorrect\n" );
+    FAIL_IF_ERROR( NULL == (input_file = fopen(argv[2], "rb")), "input file incorrect\n" );
+    FAIL_IF_ERROR( NULL == (output_file = fopen(argv[3], "wb+")), "output file incorrect\n" );
+    FAIL_IF_ERROR( NULL == (log_file = fopen(argv[4], "w+")), "log file incorrect\n" );
 
     const double frames_interval = time_slot_length * fps;
     float* qpmap;
@@ -255,11 +281,11 @@ int main( int argc, char **argv )
     for( ;; i_frame++ )
     {
         /* Read input frame */
-        if( fread( pic.img.plane[0], 1, luma_size, stdin ) != luma_size )
+        if( fread( pic.img.plane[0], 1, luma_size, input_file ) != luma_size )
             break;
-        if( fread( pic.img.plane[1], 1, chroma_size, stdin ) != chroma_size )
+        if( fread( pic.img.plane[1], 1, chroma_size, input_file ) != chroma_size )
             break;
-        if( fread( pic.img.plane[2], 1, chroma_size, stdin ) != chroma_size )
+        if( fread( pic.img.plane[2], 1, chroma_size, input_file ) != chroma_size )
             break;
 
         pic.i_pts = i_frame;
@@ -269,7 +295,24 @@ int main( int argc, char **argv )
             double bit_rate = ((total_bytes * 8.0 / (1024* 1024)) / (frames_interval * 1.0 / fps)) ;
             double average_dssim = total_dssim / frames_interval;
             fprintf(stderr, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
+            fprintf(log_file, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
             controller(bit_rate, average_dssim);
+            if(global_rk > 1.0)
+            {
+                global_rk = 1.0;
+            }
+            else if(global_rk < 0.0)
+            {
+                global_rk = 0.0;
+            }
+            if(global_dk > 51)
+            {
+                global_dk = 51;
+            }
+            else if(global_dk < 0)
+            {
+                global_dk = 0;
+            }
             free(qpmap);
             qpmap = get_qpmap(width, height, global_rk, global_dk);
             frame_count = 1;
@@ -284,10 +327,11 @@ int main( int argc, char **argv )
         else if( i_frame_size )
         {
             fprintf(stderr, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            fprintf(log_file, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
             frame_count++;
             total_bytes += i_frame_size;
             total_dssim += ((1 - pic_out.prop.f_ssim) / 2);
-            if( !fwrite( nal->p_payload, i_frame_size, 1, stdout ) )
+            if( !fwrite( nal->p_payload, i_frame_size, 1, output_file ) )
                 goto fail;
         }
     }
@@ -299,7 +343,7 @@ int main( int argc, char **argv )
             goto fail;
         else if( i_frame_size )
         {
-            if( !fwrite( nal->p_payload, i_frame_size, 1, stdout ) )
+            if( !fwrite( nal->p_payload, i_frame_size, 1, output_file ) )
                 goto fail;
         }
     }
@@ -307,6 +351,9 @@ int main( int argc, char **argv )
     x264_encoder_close( h );
     x264_picture_clean( &pic );
     free(qpmap);
+    fclose(input_file);
+    fclose(output_file);
+    fclose(log_file);
     return 0;
 
 #undef fail
@@ -315,5 +362,8 @@ fail3:
 fail2:
     x264_picture_clean( &pic );
 fail:
+    fclose(input_file);
+    fclose(output_file);
+    fclose(log_file);
     return -1;
 }
