@@ -35,8 +35,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-double b_target = 25;
-double q_target = 0.05;
+double b_target = 28;
+double q_target = 0.028;
 const double time_slot_length = 1;
 const int fps = 30;
 double alpha = 1;
