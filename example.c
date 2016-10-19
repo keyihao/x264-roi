@@ -218,7 +218,7 @@ void get_qpmap( int width, int height, double roi_size, float qpdelta )
     int column_in_last_row = roi_mb_remain % roi_width_in_mb;
     int start_row_index = height_in_mb / 2 - (roi_total_row / 2 + roi_total_row % 2);
     int start_column_index = width_in_mb / 2 - (roi_width_in_mb / 2 + roi_width_in_mb % 2);
-
+    /**
     fprintf( stderr, "min_width: %d\n", min_width);
     fprintf( stderr, "min_height: %d\n", min_height);
     fprintf( stderr, "roi_factor: %f\n", roi_factor);
@@ -229,7 +229,7 @@ void get_qpmap( int width, int height, double roi_size, float qpdelta )
     fprintf( stderr, "column_in_last_row: %d\n", column_in_last_row);
     fprintf( stderr, "start_row_index: %d\n", start_row_index);
     fprintf( stderr, "start_column_index: %d\n", start_column_index);
-
+    **/
     for(int i = 0; i < roi_total_row; i++)
     {
         for(int j = 0; j < roi_width_in_mb; j++)
@@ -277,7 +277,7 @@ int main( int argc, char **argv )
     const double frames_interval = time_slot_length * fps;
     
     get_qpmap(width, height, 1, 1);
-    print_qpmap(width, height);
+    //print_qpmap(width, height);
     //return 0;
 
     /* Get default params for preset/tuning */
@@ -359,7 +359,7 @@ int main( int argc, char **argv )
             }
             free(qpmap);
             get_qpmap(width, height, global_rk, global_dk);
-            print_qpmap(width, height);
+            //print_qpmap(width, height);
             frame_count = 1;
             total_bytes = 0;
             total_dssim = 0;
