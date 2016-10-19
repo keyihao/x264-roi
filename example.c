@@ -37,12 +37,12 @@
 
 double b_target = 28;
 //double q_target = 0.028;
-const double time_slot_length = 1;
+double time_slot_length = 0.1;
 const int fps = 30;
 double alpha = 1;
 double psir = 10;
 double psid = 10;
-double global_rk = 1;
+double global_rk = 0.1;
 double global_dk = 1;
 //double global_bk = 0;
 //double global_qk = 0;
@@ -265,18 +265,21 @@ int main( int argc, char **argv )
 
     FAIL_IF_ERROR( !(argc > 1), "Example usage: example 352x288 <input.yuv >output.h264\n" );
     FAIL_IF_ERROR( 2 != sscanf( argv[1], "%dx%d", &width, &height ), "resolution not specified or incorrect\n" );
-    FAIL_IF_ERROR( NULL == (input_file = fopen(argv[2], "rb")), "input file incorrect\n" );
-    FAIL_IF_ERROR( NULL == (output_file = fopen(argv[3], "wb+")), "output file incorrect\n" );
-    FAIL_IF_ERROR( NULL == (log_file = fopen(argv[4], "w+")), "log file incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[5], "%lf", &b_target ), "bit-rate target incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[2], "%lf", &time_slot_length ), "time_slot_length incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[3], "%lf", &global_rk ), "initial ROI size incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[4], "%lf", &global_dk ), "initial QP delta incorrect\n" );
+    FAIL_IF_ERROR( NULL == (input_file = fopen(argv[5], "rb")), "input file incorrect\n" );
+    FAIL_IF_ERROR( NULL == (output_file = fopen(argv[6], "wb+")), "output file incorrect\n" );
+    FAIL_IF_ERROR( NULL == (log_file = fopen(argv[7], "w+")), "log file incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[8], "%lf", &b_target ), "bit-rate target incorrect\n" );
     //FAIL_IF_ERROR( 1 != sscanf( argv[6], "%lf", &q_target ), "qoe target incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[6], "%lf", &psir ), "psir incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[7], "%lf", &psid ), "psid incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[9], "%lf", &psir ), "psir incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[10], "%lf", &psid ), "psid incorrect\n" );
 
 
     const double frames_interval = time_slot_length * fps;
     
-    get_qpmap(width, height, 1, 1);
+    get_qpmap(width, height, global_rk, global_dk);
     //print_qpmap(width, height);
     //return 0;
 
@@ -318,7 +321,7 @@ int main( int argc, char **argv )
 
     int luma_size = width * height;
     int chroma_size = luma_size / 4;
-    int frame_count = 1;
+    int frame_count = 0;
     int total_bytes = 0;
     double total_dssim = 0;
     /* Encode frames */
@@ -360,7 +363,7 @@ int main( int argc, char **argv )
             free(qpmap);
             get_qpmap(width, height, global_rk, global_dk);
             //print_qpmap(width, height);
-            frame_count = 1;
+            frame_count = 0;
             total_bytes = 0;
             total_dssim = 0;
         }
