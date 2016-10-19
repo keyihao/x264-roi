@@ -36,7 +36,7 @@
 #include <string.h>
 
 double b_target = 28;
-double q_target = 0.028;
+//double q_target = 0.028;
 const double time_slot_length = 1;
 const int fps = 30;
 double alpha = 1;
@@ -49,30 +49,41 @@ double global_dk = 1;
 FILE* input_file;
 FILE* output_file;
 FILE* log_file;
+float* qpmap;
 
 double utility(double bk, double qk)
 {
     return ((1.0 / (1.0+bk)) + alpha * (1.0 / (1.0+qk)));
 }
 
-double deltab(double bk, double qk)
+double utility_new(double bk)
 {
-    return (utility(bk, qk) - utility(b_target, qk)) ;
+    return ((1.0 / (1.0+bk)));
 }
 
+double deltab(double bk/**, double qk**/)
+{
+    //return (utility(bk, qk) - utility(b_target, qk)) ;
+    return (utility_new(bk) - utility_new(b_target)) ;
+}
+
+/**
 double deltaq(double bk, double qk)
 {
     return (utility(bk, qk) - utility(bk, q_target));
 }
+**/
 
-double grk(double bk, double qk)
+double grk(double bk/**, double qk**/)
 {
-    return ( (2.0 * exp(psir * deltab(bk, qk))) / (1.0 + exp(psir * deltab(bk, qk))) );
+    //return ( (2.0 * exp(psir * deltab(bk, qk))) / (1.0 + exp(psir * deltab(bk, qk))) );
+    return ( (2.0 * exp(psir * deltab(bk))) / (1.0 + exp(psir * deltab(bk))) );
 }
 
-double gdk(double bk, double qk)
+double gdk(double bk/**, double qk**/)
 {
-    return ( (2.0 * exp(psid * deltaq(bk, qk))) / (1.0 + exp(psid * deltaq(bk, qk))) );
+    //return ( (2.0 * exp(psid * deltaq(bk, qk))) / (1.0 + exp(psid * deltaq(bk, qk))) );
+    return ( (1.0 + exp(psid * deltab(bk))) / (2.0 * exp(psid * deltab(bk))) );
 }
 
 #define FAIL_IF_ERROR( cond, ... )\
@@ -94,6 +105,7 @@ int gcd ( int a, int b )
   return b;
 }
 
+/**
 void controller(double bk, double qk)
 {
     double c_grk = grk(bk, qk);
@@ -107,8 +119,23 @@ void controller(double bk, double qk)
     fprintf( stderr, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
     fprintf( log_file, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
 }
+**/
 
-void print_qpmap( int width, int height, float* qpmap)
+void controller_roi(double bk)
+{
+    double c_grk = grk(bk);
+    double c_gdk = gdk(bk);
+    fprintf( stderr, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
+    fprintf( log_file, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
+    fprintf( stderr, "R(k): %f, D(k): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k): %f, D(k): %f\n", global_rk, global_dk);
+    global_rk = c_grk * global_rk;
+    global_dk = c_gdk * global_dk;
+    fprintf( stderr, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
+}
+
+void print_qpmap( int width, int height)
 {
     int width_in_mb = (int)ceil(width / 16.0);
     int height_in_mb = (int)ceil(height / 16.0);
@@ -126,7 +153,7 @@ void print_qpmap( int width, int height, float* qpmap)
     return;
 }
 
-float* get_qpmap( int width, int height, double roi_size, float qpdelta )
+void get_qpmap( int width, int height, double roi_size, float qpdelta )
 {
     int width_in_mb = (int)ceil(width / 16.0);
     int height_in_mb = (int)ceil(height / 16.0);
@@ -135,7 +162,6 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
     int min_height = height_in_mb / width_height_mb_gcd;
     int qpmap_length = width_in_mb * height_in_mb;
 
-    float* qpmap;
     qpmap = (float*)malloc(qpmap_length * sizeof(float));
 
     if(qpmap == NULL)
@@ -144,7 +170,7 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
         fprintf( log_file, "qpmap malloc failed\n" );
     }
 
-    if( abs(roi_size - 1.0) < 1e-6 )
+    if( fabs(roi_size - 1.0) < 1e-6 )
     {
         for(int i = 0; i < height_in_mb; i++)
         {
@@ -153,7 +179,7 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
                 qpmap[i*width_in_mb + j] = 0;
             }
         }
-        return qpmap;
+        return;
     }
 
     for(int i = 0; i < height_in_mb; i++)
@@ -166,30 +192,33 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
 
     if((roi_size - 0.0) < 1e-6)
     {
-        return qpmap;
+        return;
     } 
 
     int roi_in_mb = (int)round(roi_size * qpmap_length);
     double roi_factor = sqrt(roi_in_mb * 1.0 / (min_width * min_height));
-    int roi_width_in_mb = (int)floor(roi_factor * min_width);
-    int roi_height_in_mb = (int)floor(roi_factor * min_height);
+    int roi_width_in_mb = (int)round(roi_factor * min_width);
+    int roi_height_in_mb = (int)round(roi_factor * min_height);
     int roi_mb_remain = roi_in_mb - roi_width_in_mb * roi_height_in_mb;
+
+    if (roi_mb_remain < 0)
+    {
+        int exceed_row = 0;
+        while(roi_mb_remain < 0)
+        {
+            roi_mb_remain += roi_width_in_mb;
+            exceed_row += 1;
+        }
+        roi_height_in_mb -= exceed_row;
+        roi_mb_remain = roi_in_mb - roi_width_in_mb * roi_height_in_mb;
+    }
+
     int remain_row = (int)ceil(roi_mb_remain * 1.0 / roi_width_in_mb);
     int roi_total_row = roi_height_in_mb + remain_row;
     int column_in_last_row = roi_mb_remain % roi_width_in_mb;
     int start_row_index = height_in_mb / 2 - (roi_total_row / 2 + roi_total_row % 2);
     int start_column_index = width_in_mb / 2 - (roi_width_in_mb / 2 + roi_width_in_mb % 2);
 
-    for(int i = 0; i < roi_total_row; i++)
-    {
-        for(int j = 0; j < roi_width_in_mb; j++)
-        {
-            if( (i == roi_total_row - 1) && (j == column_in_last_row) && (column_in_last_row != roi_width_in_mb) && (column_in_last_row != 0))
-                break;
-            qpmap[(start_row_index + i)*width_in_mb + start_column_index + j] = 0;
-        }
-    }
-    /**
     fprintf( stderr, "min_width: %d\n", min_width);
     fprintf( stderr, "min_height: %d\n", min_height);
     fprintf( stderr, "roi_factor: %f\n", roi_factor);
@@ -200,8 +229,18 @@ float* get_qpmap( int width, int height, double roi_size, float qpdelta )
     fprintf( stderr, "column_in_last_row: %d\n", column_in_last_row);
     fprintf( stderr, "start_row_index: %d\n", start_row_index);
     fprintf( stderr, "start_column_index: %d\n", start_column_index);
-    **/
-    return qpmap;
+
+    for(int i = 0; i < roi_total_row; i++)
+    {
+        for(int j = 0; j < roi_width_in_mb; j++)
+        {
+            if( (i == roi_total_row - 1) && (j == column_in_last_row) && (column_in_last_row != roi_width_in_mb) && (column_in_last_row != 0))
+                break;
+            qpmap[(start_row_index + i)*width_in_mb + start_column_index + j] = 0;
+        }
+    }
+    
+    return;
 }
 
 int main( int argc, char **argv )
@@ -229,11 +268,16 @@ int main( int argc, char **argv )
     FAIL_IF_ERROR( NULL == (input_file = fopen(argv[2], "rb")), "input file incorrect\n" );
     FAIL_IF_ERROR( NULL == (output_file = fopen(argv[3], "wb+")), "output file incorrect\n" );
     FAIL_IF_ERROR( NULL == (log_file = fopen(argv[4], "w+")), "log file incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[5], "%lf", &b_target ), "bit-rate target incorrect\n" );
+    //FAIL_IF_ERROR( 1 != sscanf( argv[6], "%lf", &q_target ), "qoe target incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[6], "%lf", &psir ), "psir incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[7], "%lf", &psid ), "psid incorrect\n" );
+
 
     const double frames_interval = time_slot_length * fps;
-    float* qpmap;
-    qpmap = get_qpmap(width, height, 1, 1);
-    //print_qpmap(width, height, qpmap);
+    
+    get_qpmap(width, height, 1, 1);
+    print_qpmap(width, height);
     //return 0;
 
     /* Get default params for preset/tuning */
@@ -296,7 +340,7 @@ int main( int argc, char **argv )
             double average_dssim = total_dssim / frames_interval;
             fprintf(stderr, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
             fprintf(log_file, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
-            controller(bit_rate, average_dssim);
+            controller_roi(bit_rate);
             if(global_rk > 1.0)
             {
                 global_rk = 1.0;
@@ -314,7 +358,8 @@ int main( int argc, char **argv )
                 global_dk = 0;
             }
             free(qpmap);
-            qpmap = get_qpmap(width, height, global_rk, global_dk);
+            get_qpmap(width, height, global_rk, global_dk);
+            print_qpmap(width, height);
             frame_count = 1;
             total_bytes = 0;
             total_dssim = 0;
