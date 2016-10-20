@@ -38,6 +38,10 @@ OBJCHK = tools/checkasm.o
 
 OBJEXAMPLE = example.o
 
+OBJVBR = vbr.o
+
+OBJCRF = crf.o
+
 CONFIG := $(shell cat config.h)
 
 # GPL-only files
@@ -192,10 +196,12 @@ $(SONAME): $(GENERATED) .depend $(OBJS) $(OBJASM) $(OBJSO)
 	$(LD)$@ $(OBJS) $(OBJASM) $(OBJSO) $(SOFLAGS) $(LDFLAGS)
 
 ifneq ($(EXE),)
-.PHONY: x264 checkasm example
+.PHONY: x264 checkasm example vbr crf
 x264: x264$(EXE)
 checkasm: checkasm$(EXE)
 example: example$(EXE)
+vbr: vbr$(EXE)
+crf: crf$(EXE)
 endif
 
 x264$(EXE): $(GENERATED) .depend $(OBJCLI) $(CLI_LIBX264)
@@ -207,7 +213,13 @@ checkasm$(EXE): $(GENERATED) .depend $(OBJCHK) $(LIBX264)
 example$(EXE): $(GENERATED) .depend $(OBJEXAMPLE) $(LIBX264)
 	$(LD)$@ $(OBJEXAMPLE) $(LIBX264) $(LDFLAGS)
 
-$(OBJS) $(OBJASM) $(OBJSO) $(OBJCLI) $(OBJCHK) $(OBJEXAMPLE): .depend
+vbr$(EXE): $(GENERATED) .depend $(OBJVBR) $(LIBX264)
+	$(LD)$@ $(OBJVBR) $(LIBX264) $(LDFLAGS)
+
+crf$(EXE): $(GENERATED) .depend $(OBJCRF) $(LIBX264)
+	$(LD)$@ $(OBJCRF) $(LIBX264) $(LDFLAGS)
+
+$(OBJS) $(OBJASM) $(OBJSO) $(OBJCLI) $(OBJCHK) $(OBJEXAMPLE) $(OBJVBR) $(OBJCRF): .depend
 
 %.o: %.asm common/x86/x86inc.asm common/x86/x86util.asm
 	$(AS) $(ASFLAGS) -o $@ $<
@@ -275,6 +287,8 @@ clean:
 	rm -f $(OBJS) $(OBJASM) $(OBJCLI) $(OBJSO) $(SONAME) *.a *.lib *.exp *.pdb x264 x264.exe .depend TAGS
 	rm -f checkasm checkasm.exe $(OBJCHK) $(GENERATED) x264_lookahead.clbin
 	rm -f example example.exe $(OBJEXAMPLE)
+	rm -f vbr vbr.exe $(OBJVBR)
+	rm -f crf crf.exe $(OBJCRF)
 	rm -f $(SRC2:%.c=%.gcda) $(SRC2:%.c=%.gcno) *.dyn pgopti.dpi pgopti.dpi.lock *.pgd *.pgc
 
 distclean: clean
