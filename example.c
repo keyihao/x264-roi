@@ -50,6 +50,11 @@ FILE* input_file;
 FILE* output_file;
 FILE* log_file;
 float* qpmap;
+double _Kp = 0.0;
+double _Ki = 0.0;
+double _Kd = 0.0;
+double _pre_error = 0;
+double _integral = 0;
 
 double utility(double bk, double qk)
 {
@@ -80,10 +85,20 @@ double grk(double bk/**, double qk**/)
     return ( (2.0 * exp(psir * deltab(bk))) / (1.0 + exp(psir * deltab(bk))) );
 }
 
+double grk_new(double pid_output)
+{
+    return ( (2.0 * exp(pid_output)) / (1.0 + exp(pid_output)) );
+}
+
 double gdk(double bk/**, double qk**/)
 {
     //return ( (2.0 * exp(psid * deltaq(bk, qk))) / (1.0 + exp(psid * deltaq(bk, qk))) );
     return ( (1.0 + exp(psid * deltab(bk))) / (2.0 * exp(psid * deltab(bk))) );
+}
+
+double gdk_new(double pid_output)
+{
+    return ( (1.0 + exp(pid_output)) / (2.0 * exp(pid_output)) );
 }
 
 #define FAIL_IF_ERROR( cond, ... )\
@@ -125,6 +140,36 @@ void controller_roi(double bk)
 {
     double c_grk = grk(bk);
     double c_gdk = gdk(bk);
+    fprintf( stderr, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
+    fprintf( log_file, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
+    fprintf( stderr, "R(k): %f, D(k): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k): %f, D(k): %f\n", global_rk, global_dk);
+    global_rk = c_grk * global_rk;
+    global_dk = c_gdk * global_dk;
+    fprintf( stderr, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
+}
+
+void pid_controller(double bk)
+{
+    double error = b_target - bk;
+    double Pout = _Kp * error;
+
+    _integral += error * time_slot_length;
+    double Iout = _Ki * _integral;
+
+    double derivative = (error - _pre_error) / time_slot_length;
+    double Dout = _Kd * derivative;
+
+    double output = Pout + Iout + Dout;
+
+    fprintf( stderr, "error: %f, _integral: %f, derivative: %f, Pout: %f, Iout: %f, Dout: %f, output: %f\n", error, _integral, derivative, Pout, Iout, Dout, output);
+    fprintf( log_file, "error: %f, _integral: %f, derivative: %f, Pout: %f, Iout: %f, Dout: %f, output: %f\n", error, _integral, derivative, Pout, Iout, Dout, output);
+
+    _pre_error = error;
+    
+    double c_grk = grk_new(output);
+    double c_gdk = gdk_new(output);
     fprintf( stderr, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
     fprintf( log_file, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
     fprintf( stderr, "R(k): %f, D(k): %f\n", global_rk, global_dk);
@@ -190,10 +235,11 @@ void get_qpmap( int width, int height, double roi_size, float qpdelta )
         }
     }
 
-    if((roi_size - 0.0) < 1e-6)
+    if((roi_size - 0.0) < 1e-6 || ((int)round(roi_size * qpmap_length) == 0))
     {
         return;
     } 
+
 
     int roi_in_mb = (int)round(roi_size * qpmap_length);
     double roi_factor = sqrt(roi_in_mb * 1.0 / (min_width * min_height));
@@ -273,8 +319,11 @@ int main( int argc, char **argv )
     FAIL_IF_ERROR( NULL == (log_file = fopen(argv[7], "w+")), "log file incorrect\n" );
     FAIL_IF_ERROR( 1 != sscanf( argv[8], "%lf", &b_target ), "bit-rate target incorrect\n" );
     //FAIL_IF_ERROR( 1 != sscanf( argv[6], "%lf", &q_target ), "qoe target incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[9], "%lf", &psir ), "psir incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[10], "%lf", &psid ), "psid incorrect\n" );
+    //FAIL_IF_ERROR( 1 != sscanf( argv[9], "%lf", &psir ), "psir incorrect\n" );
+    //FAIL_IF_ERROR( 1 != sscanf( argv[10], "%lf", &psid ), "psid incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[9], "%lf", &_Kp ), "_Kp incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[10], "%lf", &_Ki ), "_Ki incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[11], "%lf", &_Kd ), "_Kd incorrect\n" );
 
 
     const double frames_interval = time_slot_length * fps;
@@ -343,22 +392,23 @@ int main( int argc, char **argv )
             double average_dssim = total_dssim / frames_interval;
             fprintf(stderr, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
             fprintf(log_file, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
-            controller_roi(bit_rate);
+            //controller_roi(bit_rate);
+            pid_controller(bit_rate);
             if(global_rk > 1.0)
             {
                 global_rk = 1.0;
             }
-            else if(global_rk < 0.0)
+            else if(global_rk < 0.01)
             {
-                global_rk = 0.0;
+                global_rk = 0.01;
             }
             if(global_dk > 51)
             {
                 global_dk = 51;
             }
-            else if(global_dk < 0)
+            else if(global_dk < 0.1)
             {
-                global_dk = 0;
+                global_dk = 0.1;
             }
             free(qpmap);
             get_qpmap(width, height, global_rk, global_dk);
