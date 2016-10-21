@@ -109,6 +109,7 @@ int main( int argc, char **argv )
     param.b_repeat_headers = 1;
     param.b_annexb = 1;
     param.analyse.b_ssim = 1;
+    param.analyse.b_psy = 0;
     param.rc.i_rc_method = X264_RC_CRF;
     param.rc.f_rf_constant = crf;
     param.rc.i_lookahead = 0;

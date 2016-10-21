@@ -108,6 +108,7 @@ int main( int argc, char **argv )
     param.b_repeat_headers = 1;
     param.b_annexb = 1;
     param.analyse.b_ssim = 1;
+    param.analyse.b_psy = 0;
     param.rc.i_rc_method = X264_RC_ABR;
     param.rc.i_bitrate = b_target * 1024;
     param.rc.i_vbv_max_bitrate = b_target * 1024;
