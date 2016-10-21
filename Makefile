@@ -42,6 +42,8 @@ OBJVBR = vbr.o
 
 OBJCRF = crf.o
 
+OBJPCONTROLLER = p_controller.o
+
 CONFIG := $(shell cat config.h)
 
 # GPL-only files
@@ -196,12 +198,13 @@ $(SONAME): $(GENERATED) .depend $(OBJS) $(OBJASM) $(OBJSO)
 	$(LD)$@ $(OBJS) $(OBJASM) $(OBJSO) $(SOFLAGS) $(LDFLAGS)
 
 ifneq ($(EXE),)
-.PHONY: x264 checkasm example vbr crf
+.PHONY: x264 checkasm example vbr crf p_controller
 x264: x264$(EXE)
 checkasm: checkasm$(EXE)
 example: example$(EXE)
 vbr: vbr$(EXE)
 crf: crf$(EXE)
+p_controller : p_controller$(EXE)
 endif
 
 x264$(EXE): $(GENERATED) .depend $(OBJCLI) $(CLI_LIBX264)
@@ -219,7 +222,10 @@ vbr$(EXE): $(GENERATED) .depend $(OBJVBR) $(LIBX264)
 crf$(EXE): $(GENERATED) .depend $(OBJCRF) $(LIBX264)
 	$(LD)$@ $(OBJCRF) $(LIBX264) $(LDFLAGS)
 
-$(OBJS) $(OBJASM) $(OBJSO) $(OBJCLI) $(OBJCHK) $(OBJEXAMPLE) $(OBJVBR) $(OBJCRF): .depend
+p_controller$(EXE): $(GENERATED) .depend $(OBJPCONTROLLER) $(LIBX264)
+	$(LD)$@ $(OBJPCONTROLLER) $(LIBX264) $(LDFLAGS)
+
+$(OBJS) $(OBJASM) $(OBJSO) $(OBJCLI) $(OBJCHK) $(OBJEXAMPLE) $(OBJVBR) $(OBJCRF) $(OBJPCONTROLLER): .depend
 
 %.o: %.asm common/x86/x86inc.asm common/x86/x86util.asm
 	$(AS) $(ASFLAGS) -o $@ $<
@@ -289,6 +295,7 @@ clean:
 	rm -f example example.exe $(OBJEXAMPLE)
 	rm -f vbr vbr.exe $(OBJVBR)
 	rm -f crf crf.exe $(OBJCRF)
+	rm -f p_controller p_controller.exe $(OBJPCONTROLLER)
 	rm -f $(SRC2:%.c=%.gcda) $(SRC2:%.c=%.gcno) *.dyn pgopti.dpi pgopti.dpi.lock *.pgd *.pgc
 
 distclean: clean
