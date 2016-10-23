@@ -365,7 +365,7 @@ int main( int argc, char **argv )
             fprintf(log_file, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
             frame_count++;
             total_bytes += i_frame_size;
-            total_dssim += ((1 - pic_out.prop.f_ssim) / 2);
+            total_dssim += ((1 / pic_out.prop.f_ssim) - 1);
             if( !fwrite( nal->p_payload, i_frame_size, 1, output_file ) )
                 goto fail;
         }
