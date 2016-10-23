@@ -110,14 +110,14 @@ void controller_roi(double bk)
 {
     double c_grk = grk(bk);
     double c_gdk = gdk(bk);
-    fprintf( stderr, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
-    fprintf( log_file, "GR(k): %f, GD(k): %f\n", c_grk, c_gdk);
-    fprintf( stderr, "R(k): %f, D(k): %f\n", global_rk, global_dk);
-    fprintf( log_file, "R(k): %f, D(k): %f\n", global_rk, global_dk);
+    fprintf( stderr, "GR(k): %f GD(k): %f\n", c_grk, c_gdk);
+    fprintf( log_file, "GR(k): %f GD(k): %f\n", c_grk, c_gdk);
+    fprintf( stderr, "R(k): %f D(k): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k): %f D(k): %f\n", global_rk, global_dk);
     global_rk = c_grk * global_rk;
     global_dk = c_gdk * global_dk;
-    fprintf( stderr, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
-    fprintf( log_file, "R(k+1): %f, D(k+1): %f\n", global_rk, global_dk);
+    fprintf( stderr, "R(k+1): %f D(k+1): %f\n", global_rk, global_dk);
+    fprintf( log_file, "R(k+1): %f D(k+1): %f\n", global_rk, global_dk);
 }
 
 void print_qpmap( int width, int height)
@@ -328,8 +328,8 @@ int main( int argc, char **argv )
         {
             double bit_rate = ((total_bytes * 8.0 / (1024* 1024)) / (frames_interval * 1.0 / fps)) ;
             double average_dssim = total_dssim / frames_interval;
-            fprintf(stderr, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
-            fprintf(log_file, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
+            fprintf(stderr, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
+            fprintf(log_file, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
             controller_roi(bit_rate);
             if(global_rk > 1.0)
             {
@@ -361,8 +361,8 @@ int main( int argc, char **argv )
             goto fail;
         else if( i_frame_size )
         {
-            fprintf(stderr, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
-            fprintf(log_file, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            fprintf(stderr, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            fprintf(log_file, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
             frame_count++;
             total_bytes += i_frame_size;
             total_dssim += ((1 / pic_out.prop.f_ssim) - 1);

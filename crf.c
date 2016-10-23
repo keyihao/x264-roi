@@ -151,8 +151,8 @@ int main( int argc, char **argv )
         {
             double bit_rate = ((total_bytes * 8.0 / (1024* 1024)) / (frames_interval * 1.0 / fps)) ;
             double average_dssim = total_dssim / frames_interval;
-            fprintf(stderr, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
-            fprintf(log_file, "Average bitrate: %f, average dssim: %f\n", bit_rate, average_dssim);
+            fprintf(stderr, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
+            fprintf(log_file, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
             
             frame_count = 0;
             total_bytes = 0;
@@ -164,8 +164,8 @@ int main( int argc, char **argv )
             goto fail;
         else if( i_frame_size )
         {
-            fprintf(stderr, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
-            fprintf(log_file, "Frame Index: %d, Size: %d, SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            fprintf(stderr, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            fprintf(log_file, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
             frame_count++;
             total_bytes += i_frame_size;
             total_dssim += ((1 / pic_out.prop.f_ssim) - 1);
