@@ -287,8 +287,9 @@ int main( int argc, char **argv )
     param.b_annexb = 1;
     param.analyse.b_ssim = 1;
     param.analyse.b_psy = 0;
-    param.rc.i_rc_method = X264_RC_CRF;
-    param.rc.f_rf_constant = 23;
+    param.rc.i_rc_method = X264_RC_ABR;
+    param.rc.i_bitrate = b_target * 1024;
+    param.rc.i_vbv_max_bitrate = b_target * 1024;
     param.rc.i_lookahead = 0;
     param.rc.b_mb_tree = 0;
 
@@ -312,6 +313,7 @@ int main( int argc, char **argv )
     int frame_count = 0;
     int total_bytes = 0;
     double total_dssim = 0;
+
     /* Encode frames */
     for( ;; i_frame++ )
     {

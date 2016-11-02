@@ -35,7 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-double b_target = 0;
+int b_qp = 0;
 double time_slot_length = 0.1;
 const int fps = 30;
 FILE* input_file;
@@ -84,7 +84,7 @@ int main( int argc, char **argv )
     FAIL_IF_ERROR( !(argc > 1), "Example usage: vbr 352x288 <input.yuv >output.h264\n" );
     FAIL_IF_ERROR( 2 != sscanf( argv[1], "%dx%d", &width, &height ), "resolution not specified or incorrect\n" );
     FAIL_IF_ERROR( 1 != sscanf( argv[2], "%lf", &time_slot_length ), "time_slot_length incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[3], "%lf", &b_target ), "bit-rate target incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[3], "%d", &b_qp ), "qp target incorrect\n" );
     FAIL_IF_ERROR( NULL == (input_file = fopen(argv[4], "rb")), "input file incorrect\n" );
     FAIL_IF_ERROR( NULL == (output_file = fopen(argv[5], "wb+")), "output file incorrect\n" );
     FAIL_IF_ERROR( NULL == (log_file = fopen(argv[6], "w+")), "log file incorrect\n" );
@@ -109,9 +109,8 @@ int main( int argc, char **argv )
     param.b_annexb = 1;
     param.analyse.b_ssim = 1;
     param.analyse.b_psy = 0;
-    param.rc.i_rc_method = X264_RC_ABR;
-    param.rc.i_bitrate = b_target * 1024;
-    param.rc.i_vbv_max_bitrate = b_target * 1024;
+    param.rc.i_rc_method = X264_RC_CQP;
+    param.rc.i_qp_constant = b_qp;
     param.rc.i_lookahead = 0;
     param.rc.b_mb_tree = 0;
 

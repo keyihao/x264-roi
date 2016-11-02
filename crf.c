@@ -93,7 +93,7 @@ int main( int argc, char **argv )
     const double frames_interval = time_slot_length * fps;
 
     /* Get default params for preset/tuning */
-    if( x264_param_default_preset( &param, "medium", NULL ) < 0 )
+    if( x264_param_default_preset(&param, "fast" , "zerolatency" ) < 0 )
         goto fail;
 
     /* Configure non-default params */
@@ -113,6 +113,7 @@ int main( int argc, char **argv )
     param.rc.i_rc_method = X264_RC_CRF;
     param.rc.f_rf_constant = crf;
     param.rc.i_lookahead = 0;
+    param.rc.b_mb_tree = 0;
 
     /* Apply profile restrictions. */
     /*if( x264_param_apply_profile( &param, "high" ) < 0 )
