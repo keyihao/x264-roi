@@ -202,9 +202,11 @@ void get_qpmap( int width, int height, double roi_size, float qpdelta )
     int remain_row = (int)ceil(roi_mb_remain * 1.0 / roi_width_in_mb);
     int roi_total_row = roi_height_in_mb + remain_row;
     int column_in_last_row = roi_mb_remain % roi_width_in_mb;
-    int start_row_index = height_in_mb / 2 - (roi_total_row / 2 + roi_total_row % 2);
-    int start_column_index = width_in_mb / 2 - (roi_width_in_mb / 2 + roi_width_in_mb % 2);
+    int start_row_index = (height_in_mb+1) / 2 - (roi_total_row / 2 + roi_total_row % 2);
+    int start_column_index = (width_in_mb+1) / 2 - (roi_width_in_mb / 2 + roi_width_in_mb % 2);
     /**
+    fprintf( stderr, "width_in_mb: %d\n", width_in_mb);
+    fprintf( stderr, "height_in_mb: %d\n", height_in_mb);
     fprintf( stderr, "min_width: %d\n", min_width);
     fprintf( stderr, "min_height: %d\n", min_height);
     fprintf( stderr, "roi_factor: %f\n", roi_factor);
