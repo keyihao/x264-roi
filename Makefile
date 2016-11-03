@@ -48,6 +48,8 @@ OBJPVBR = p_vbr.o
 
 OBJCQP = cqp.o
 
+OBJSTATICROI = static_roi.o
+
 CONFIG := $(shell cat config.h)
 
 # GPL-only files
@@ -202,7 +204,7 @@ $(SONAME): $(GENERATED) .depend $(OBJS) $(OBJASM) $(OBJSO)
 	$(LD)$@ $(OBJS) $(OBJASM) $(OBJSO) $(SOFLAGS) $(LDFLAGS)
 
 ifneq ($(EXE),)
-.PHONY: x264 checkasm example vbr crf p_controller p_vbr cqp
+.PHONY: x264 checkasm example vbr crf p_controller p_vbr cqp static_roi
 x264: x264$(EXE)
 checkasm: checkasm$(EXE)
 example: example$(EXE)
@@ -211,6 +213,7 @@ crf: crf$(EXE)
 p_controller : p_controller$(EXE)
 p_vbr : p_vbr$(EXE)
 cqp: cqp$(EXE)
+static_roi: static_roi$(EXE)
 endif
 
 x264$(EXE): $(GENERATED) .depend $(OBJCLI) $(CLI_LIBX264)
@@ -237,7 +240,10 @@ p_vbr$(EXE): $(GENERATED) .depend $(OBJPVBR) $(LIBX264)
 cqp$(EXE): $(GENERATED) .depend $(OBJCQP) $(LIBX264)
 	$(LD)$@ $(OBJCQP) $(LIBX264) $(LDFLAGS)
 
-$(OBJS) $(OBJASM) $(OBJSO) $(OBJCLI) $(OBJCHK) $(OBJEXAMPLE) $(OBJVBR) $(OBJCRF) $(OBJPCONTROLLER) $(OBJPVBR) $(OBJCQP): .depend
+static_roi$(EXE): $(GENERATED) .depend $(OBJSTATICROI) $(LIBX264)
+	$(LD)$@ $(OBJSTATICROI) $(LIBX264) $(LDFLAGS)
+
+$(OBJS) $(OBJASM) $(OBJSO) $(OBJCLI) $(OBJCHK) $(OBJEXAMPLE) $(OBJVBR) $(OBJCRF) $(OBJPCONTROLLER) $(OBJPVBR) $(OBJCQP) $(OBJSTATICROI): .depend
 
 %.o: %.asm common/x86/x86inc.asm common/x86/x86util.asm
 	$(AS) $(ASFLAGS) -o $@ $<
@@ -310,6 +316,7 @@ clean:
 	rm -f p_controller p_controller.exe $(OBJPCONTROLLER)
 	rm -f p_vbr p_vbr.exe $(OBJPVBR)
 	rm -rf cqp cqp.exe $(OBJCQP)
+	rm -rf static_roi static_roi.exe $(OBJSTATICROI)
 	rm -f $(SRC2:%.c=%.gcda) $(SRC2:%.c=%.gcno) *.dyn pgopti.dpi pgopti.dpi.lock *.pgd *.pgc
 
 distclean: clean
