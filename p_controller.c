@@ -48,15 +48,22 @@ FILE* input_file;
 FILE* output_file;
 FILE* log_file;
 float* qpmap;
-
+/**
 double utility(double bk)
 {
     return ((1.0 / (1.0+bk)));
 }
+**/
+
+double utility_new(double bk)
+{
+    return log(1 + bk);
+}
 
 double deltab(double bk)
 {
-    return (utility(bk) - utility(b_target)) ;
+    //return (utility(bk) - utility(b_target)) ;
+    return (utility_new(b_target) - utility_new(bk));
 }
 
 
