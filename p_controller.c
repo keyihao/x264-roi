@@ -63,18 +63,18 @@ double utility_new(double bk)
 double deltab(double bk)
 {
     //return (utility(bk) - utility(b_target)) ;
-    return (utility_new(b_target) - utility_new(bk));
+    return (utility_new(bk) - utility_new(b_target));
 }
 
 
 double grk(double bk)
 {
-    return ( (2.0 * exp(psir * deltab(bk))) / (1.0 + exp(psir * deltab(bk))) );
+    return ( (1.0 + exp(psir * deltab(bk))) / (2.0 * exp(psir * deltab(bk))) );
 }
 
 double gdk(double bk/**, double qk**/)
 {
-    return ( (1.0 + exp(psid * deltab(bk))) / (2.0 * exp(psid * deltab(bk))) );
+    return ( (2.0 * exp(psid * deltab(bk))) / (1.0 + exp(psid * deltab(bk))) );
 }
 
 
