@@ -34,6 +34,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 //int time_slot_length = 0.1;
 //const int fps = 30;
@@ -185,6 +186,7 @@ int main( int argc, char **argv )
     int i_frame_size;
     x264_nal_t *nal;
     int i_nal;
+    long long total_clockcycle = 0;
 
 /**
 #ifdef _WIN32
@@ -280,7 +282,9 @@ int main( int argc, char **argv )
         **/
 
         pic.prop.quant_offsets = qpmap;
+        clock_t start = clock();
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
+        total_clockcycle += (clock() - start);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
@@ -297,7 +301,9 @@ int main( int argc, char **argv )
     /* Flush delayed frames */
     while( x264_encoder_delayed_frames( h ) )
     {
+        clock_t start = clock();
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, NULL, &pic_out );
+        total_clockcycle += (clock() - start);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
@@ -313,6 +319,8 @@ int main( int argc, char **argv )
     fclose(input_file);
     fclose(output_file);
     //fclose(log_file);
+    fprintf(stderr, "TotalTimeElapse: %f\n", total_clockcycle/(double)CLOCKS_PER_SEC);
+    fprintf(stderr, "TotalTimeElapseAverage: %f\n", total_clockcycle/(double)(CLOCKS_PER_SEC*i_frame));
     return 0;
 
 #undef fail

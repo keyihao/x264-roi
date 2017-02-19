@@ -1,3 +1,4 @@
+
 /*****************************************************************************
  * example.c: libx264 API usage example
  *****************************************************************************
@@ -34,6 +35,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 double b_target = 28;
 //double q_target = 0.028;
@@ -366,7 +368,10 @@ int main( int argc, char **argv )
         }
 
         pic.prop.quant_offsets = qpmap;
+        //clock_t start = clock();
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
+        //double elapse = (clock() - start)/(double)CLOCKS_PER_SEC;
+        //fprintf(stderr, "TimeElapse: %f\n", elapse);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
