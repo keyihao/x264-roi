@@ -36,7 +36,7 @@ for game_str in ['nfs','cv','bo3']:
 			for size in sizes:
 				detailframesize_file.write("%s\n" % size)
 
-			average_time = [float(string.split()[1])*100 for string in out[1].split('\r\n') if (string.startswith('TotalTimeElapseAverage'))][0]
+			average_time = [float(string.split()[1])*1000 for string in out[1].split('\r\n') if (string.startswith('TotalTimeElapseAverage'))][0]
 			print average_time
 			averagetime_matrix[roi/5][qp_delta-1] = average_time
 
