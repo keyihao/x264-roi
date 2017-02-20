@@ -42,6 +42,9 @@ checkasm
 *.pgd
 *.pgc
 *.txt
+*.cmd
+2016*/
+data/
 
 .digress_x264
 dataDec.txt
