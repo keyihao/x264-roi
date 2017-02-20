@@ -34,13 +34,14 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 double b_target = 0;
 double time_slot_length = 0.1;
 const int fps = 30;
 FILE* input_file;
 FILE* output_file;
-FILE* log_file;
+//FILE* log_file;
 
 #define FAIL_IF_ERROR( cond, ... )\
 do\
@@ -72,6 +73,7 @@ int main( int argc, char **argv )
     int i_frame_size;
     x264_nal_t *nal;
     int i_nal;
+    long long total_clockcycle = 0;
 
 /**
 #ifdef _WIN32
@@ -87,7 +89,7 @@ int main( int argc, char **argv )
     FAIL_IF_ERROR( 1 != sscanf( argv[3], "%lf", &b_target ), "bit-rate target incorrect\n" );
     FAIL_IF_ERROR( NULL == (input_file = fopen(argv[4], "rb")), "input file incorrect\n" );
     FAIL_IF_ERROR( NULL == (output_file = fopen(argv[5], "wb+")), "output file incorrect\n" );
-    FAIL_IF_ERROR( NULL == (log_file = fopen(argv[6], "w+")), "log file incorrect\n" );
+    //FAIL_IF_ERROR( NULL == (log_file = fopen(argv[6], "w+")), "log file incorrect\n" );
 
     const double frames_interval = time_slot_length * fps;
 
@@ -153,20 +155,22 @@ int main( int argc, char **argv )
             double bit_rate = ((total_bytes * 8.0 / (1024* 1024)) / (frames_interval * 1.0 / fps)) ;
             double average_dssim = total_dssim / frames_interval;
             fprintf(stderr, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
-            fprintf(log_file, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
+            //fprintf(log_file, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
             
             frame_count = 0;
             total_bytes = 0;
             total_dssim = 0;
         }
 
+        clock_t start = clock();
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
+        total_clockcycle += (clock() - start);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
         {
             fprintf(stderr, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
-            fprintf(log_file, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            //fprintf(log_file, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
             frame_count++;
             total_bytes += i_frame_size;
             total_dssim += ((1 / pic_out.prop.f_ssim) - 1);
@@ -177,7 +181,9 @@ int main( int argc, char **argv )
     /* Flush delayed frames */
     while( x264_encoder_delayed_frames( h ) )
     {
+        clock_t start = clock();
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, NULL, &pic_out );
+        total_clockcycle += (clock() - start);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
@@ -191,7 +197,9 @@ int main( int argc, char **argv )
     x264_picture_clean( &pic );
     fclose(input_file);
     fclose(output_file);
-    fclose(log_file);
+    fprintf(stderr, "TotalTimeElapse: %f\n", total_clockcycle/(double)CLOCKS_PER_SEC);
+    fprintf(stderr, "AverageTime(ms): %f\n", total_clockcycle*1000.0/(double)(CLOCKS_PER_SEC*i_frame));
+    //fclose(log_file);
     return 0;
 
 #undef fail
@@ -202,6 +210,6 @@ fail2:
 fail:
     fclose(input_file);
     fclose(output_file);
-    fclose(log_file);
+    //fclose(log_file);
     return -1;
 }

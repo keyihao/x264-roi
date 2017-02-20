@@ -48,7 +48,7 @@ double global_rk = 0.1;
 double global_dk = 1;
 FILE* input_file;
 FILE* output_file;
-FILE* log_file;
+//FILE* log_file;
 float* qpmap;
 /**
 double utility(double bk)
@@ -120,13 +120,13 @@ void controller_roi(double bk)
     double c_grk = grk(bk);
     double c_gdk = gdk(bk);
     fprintf( stderr, "GR(k): %f GD(k): %f\n", c_grk, c_gdk);
-    fprintf( log_file, "GR(k): %f GD(k): %f\n", c_grk, c_gdk);
+    //fprintf( log_file, "GR(k): %f GD(k): %f\n", c_grk, c_gdk);
     fprintf( stderr, "R(k): %f D(k): %f\n", global_rk, global_dk);
-    fprintf( log_file, "R(k): %f D(k): %f\n", global_rk, global_dk);
+    //fprintf( log_file, "R(k): %f D(k): %f\n", global_rk, global_dk);
     global_rk = c_grk * global_rk;
     global_dk = c_gdk * global_dk;
     fprintf( stderr, "R(k+1): %f D(k+1): %f\n", global_rk, global_dk);
-    fprintf( log_file, "R(k+1): %f D(k+1): %f\n", global_rk, global_dk);
+    //fprintf( log_file, "R(k+1): %f D(k+1): %f\n", global_rk, global_dk);
 }
 
 void print_qpmap( int width, int height)
@@ -139,10 +139,10 @@ void print_qpmap( int width, int height)
         for(int j = 0; j < width_in_mb; j++)
         {
             fprintf( stderr, "%.0f", qpmap[i*width_in_mb + j]);
-            fprintf( log_file, "%.0f", qpmap[i*width_in_mb + j]);
+            //fprintf( log_file, "%.0f", qpmap[i*width_in_mb + j]);
         }
         fprintf( stderr, "\n");
-        fprintf( log_file, "\n");
+        //fprintf( log_file, "\n");
     }
     return;
 }
@@ -161,7 +161,7 @@ void get_qpmap( int width, int height, double roi_size, float qpdelta )
     if(qpmap == NULL)
     {
         fprintf( stderr, "qpmap malloc failed\n" );
-        fprintf( log_file, "qpmap malloc failed\n" );
+        //fprintf( log_file, "qpmap malloc failed\n" );
     }
 
     if( fabs(roi_size - 1.0) < 1e-6 )
@@ -251,6 +251,7 @@ int main( int argc, char **argv )
     int i_frame_size;
     x264_nal_t *nal;
     int i_nal;
+    long long total_clockcycle = 0;
 
 /**
 #ifdef _WIN32
@@ -267,11 +268,11 @@ int main( int argc, char **argv )
     FAIL_IF_ERROR( 1 != sscanf( argv[4], "%lf", &global_dk ), "initial QP delta incorrect\n" );
     FAIL_IF_ERROR( NULL == (input_file = fopen(argv[5], "rb")), "input file incorrect\n" );
     FAIL_IF_ERROR( NULL == (output_file = fopen(argv[6], "wb+")), "output file incorrect\n" );
-    FAIL_IF_ERROR( NULL == (log_file = fopen(argv[7], "w+")), "log file incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[8], "%lf", &b_target ), "bit-rate target incorrect\n" );
+    //FAIL_IF_ERROR( NULL == (log_file = fopen(argv[7], "w+")), "log file incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[7], "%lf", &b_target ), "bit-rate target incorrect\n" );
     //FAIL_IF_ERROR( 1 != sscanf( argv[6], "%lf", &q_target ), "qoe target incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[9], "%lf", &psir ), "psir incorrect\n" );
-    FAIL_IF_ERROR( 1 != sscanf( argv[10], "%lf", &psid ), "psid incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[8], "%lf", &psir ), "psir incorrect\n" );
+    FAIL_IF_ERROR( 1 != sscanf( argv[9], "%lf", &psid ), "psid incorrect\n" );
 
 
     const double frames_interval = time_slot_length * fps;
@@ -341,7 +342,7 @@ int main( int argc, char **argv )
             double bit_rate = ((total_bytes * 8.0 / (1024* 1024)) / (frames_interval * 1.0 / fps)) ;
             double average_dssim = total_dssim / frames_interval;
             fprintf(stderr, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
-            fprintf(log_file, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
+            //fprintf(log_file, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
             controller_roi(bit_rate);
             if(global_rk > 1.0)
             {
@@ -368,16 +369,15 @@ int main( int argc, char **argv )
         }
 
         pic.prop.quant_offsets = qpmap;
-        //clock_t start = clock();
+        clock_t start = clock();
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, &pic, &pic_out );
-        //double elapse = (clock() - start)/(double)CLOCKS_PER_SEC;
-        //fprintf(stderr, "TimeElapse: %f\n", elapse);
+        total_clockcycle += (clock() - start);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
         {
             fprintf(stderr, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
-            fprintf(log_file, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
+            //fprintf(log_file, "Frame Index: %d Size: %d SSIM: %f\n", i_frame, i_frame_size, pic_out.prop.f_ssim);
             frame_count++;
             total_bytes += i_frame_size;
             total_dssim += ((1 / pic_out.prop.f_ssim) - 1);
@@ -388,7 +388,9 @@ int main( int argc, char **argv )
     /* Flush delayed frames */
     while( x264_encoder_delayed_frames( h ) )
     {
+        clock_t start = clock();
         i_frame_size = x264_encoder_encode( h, &nal, &i_nal, NULL, &pic_out );
+        total_clockcycle += (clock() - start);
         if( i_frame_size < 0 )
             goto fail;
         else if( i_frame_size )
@@ -403,7 +405,9 @@ int main( int argc, char **argv )
     free(qpmap);
     fclose(input_file);
     fclose(output_file);
-    fclose(log_file);
+    fprintf(stderr, "TotalTimeElapse: %f\n", total_clockcycle/(double)CLOCKS_PER_SEC);
+    fprintf(stderr, "AverageTime(ms): %f\n", total_clockcycle*1000.0/(double)(CLOCKS_PER_SEC*i_frame));
+    //fclose(log_file);
     return 0;
 
 #undef fail
@@ -414,6 +418,6 @@ fail2:
 fail:
     fclose(input_file);
     fclose(output_file);
-    fclose(log_file);
+    //fclose(log_file);
     return -1;
 }
