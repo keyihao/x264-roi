@@ -30,8 +30,6 @@ for game_str in ['nfs']:
 	crf_factor = 25
 	final_crf_factor = 0
 	min_bitrate_gap = 10000
-	crf_sizes = None
-	crf_average_time = None
 
 	while True:
 		output_h264_filepath = video_folder+"\\"+game_str+"_crf_5min.h264"
@@ -45,23 +43,28 @@ for game_str in ['nfs']:
 		average_bitrate = file_size * 8 / video_length_inseconds / 1024.0 / 1024.0
 		print("average bitrate %f"%average_bitrate)
 
-		if abs(average_bitrate - bitrate_target_inmbps) < min_bitrate_gap:
-			min_bitrate_gap = abs(average_bitrate - bitrate_target_inmbps)
+		if average_bitrate > bitrate_target_inmbps and average_bitrate - bitrate_target_inmbps < min_bitrate_gap:
+			min_bitrate_gap = average_bitrate - bitrate_target_inmbps
 			final_crf_factor = crf_factor
-			crf_sizes = [string.split()[4] for string in out[1].split('\r\n') if (string.startswith('Frame Index'))]
-			crf_average_time = [float(string.split()[1]) for string in out[1].split('\r\n') if (string.startswith('AverageTime'))][0]
 		else:
+			encoder_args = "crf 1280x720 0.1 %d %s %s" % (final_crf_factor, input_yuv_filepath, output_h264_filepath)
+			print encoder_args
+			s = subprocess.Popen(encoder_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			out = s.communicate()
+
+			crf_sizes = [string.split()[4] for string in out[1].split('\r\n') if (string.startswith('Frame Index'))]
 			detailframesize_filepath = detaillog_folder+"\\framesize_crf_"+"%d.log"%(final_crf_factor)
 			detailframesize_file = open(detailframesize_filepath,'w')
 			for size in crf_sizes:
 				detailframesize_file.write("%s\n" % size)
 
+			crf_average_time = [float(string.split()[1]) for string in out[1].split('\r\n') if (string.startswith('AverageTime'))][0]
 			averagetime_matrix[0][0] = crf_average_time
 
 			file_size = os.path.getsize(output_h264_filepath)
-			average_bitrate = file_size * 8 / video_length_inseconds / 1024.0 / 1024.0
-			print average_bitrate
-			averagebitrate_matrix[0][0] = average_bitrate
+			crf_average_bitrate = file_size * 8 / video_length_inseconds / 1024.0 / 1024.0
+			print crf_average_bitrate
+			averagebitrate_matrix[0][0] = crf_average_bitrate
 
 			ffmpeg_args = ".\\tools\\ffmpeg.exe -i "+output_h264_filepath+" -c:v rawvideo -pix_fmt yuv420p "+output_yuv_filepath
 			s = subprocess.Popen(ffmpeg_args, shell=True, stdout=subprocess.PIPE)
@@ -78,17 +81,16 @@ for game_str in ['nfs']:
 				detailssim_file.write("%s\n" % ssim)
 
 			average_ssim = np.mean([float(ssim) for ssim in ssims[:-1]])
-			#average_ssim = out[1].split()[-3]
 			print average_ssim
 			averagessim_matrix[0][0] = average_ssim
 
 			os.remove(output_yuv_filepath)
 			break
 
-		if (average_bitrate > bitrate_target_inmbps):
-			crf_factor = crf_factor + 1
-		else:
+		if average_bitrate < bitrate_target_inmbps:
 			crf_factor = crf_factor - 1
+		else:
+			crf_factor = crf_factor + 1
 
 	#vbr
 	output_h264_filepath = video_folder+"\\"+game_str+"_vbr_5min.h264"
