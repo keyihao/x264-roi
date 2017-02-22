@@ -41,7 +41,7 @@ for game_str in ['nfs','cv','bo3']:
 			averagetime_matrix[roi/5][qp_delta-1] = average_time
 
 			file_size = os.path.getsize(output_h264_filepath)
-			average_bitrate = file_size * 8 / 30.0 / 1024.0 / 1024.0
+			average_bitrate = file_size * 8 / 30.0 / 1000.0 / 1000.0
 			print average_bitrate
 			averagebitrate_matrix[roi/5][qp_delta-1] = average_bitrate
 

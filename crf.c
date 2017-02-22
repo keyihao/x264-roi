@@ -152,7 +152,7 @@ int main( int argc, char **argv )
         
         if(frame_count == frames_interval)
         {
-            double bit_rate = ((total_bytes * 8.0 / (1024* 1024)) / (frames_interval * 1.0 / fps)) ;
+            double bit_rate = ((total_bytes * 8.0 / (1000* 1000)) / (frames_interval * 1.0 / fps)) ;
             double average_dssim = total_dssim / frames_interval;
             fprintf(stderr, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
             //fprintf(log_file, "Average bitrate: %f average dssim: %f\n", bit_rate, average_dssim);
