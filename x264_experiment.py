@@ -20,7 +20,7 @@ for game_str in ['nfs']:
 	os.makedirs(detaillog_folder)
 
 	averagetime_matrix = np.zeros(shape=(1,total_exp_num))
-	averagessim_matrix = np.zeros(shape=(1,total_exp_num))
+	averagessim_matrix = np.zeros(shape=(1,total_exp_num+1))
 	averagebitrate_matrix = np.zeros(shape=(1,total_exp_num))
 
 	input_yuv_filepath = "F:\\x264-roi\\"+game_str+"_5min_720p.yuv"
@@ -187,6 +187,38 @@ for game_str in ['nfs']:
 
 		os.remove(output_yuv_filepath)
 
+	#p_controller_in_roi
+	output_h264_filepath = video_folder+"\\"+game_str+"_roiin.h264"
+	encoder_args = "crf 1280x720 0.1 23 %s %s" % (input_yuv_filepath, output_h264_filepath)
+	print encoder_args
+	s = subprocess.Popen(encoder_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out = s.communicate()
+
+	roiin_sizes = [string.split()[4] for string in out[1].split('\r\n') if (string.startswith('Frame Index'))]
+	detailframesize_filepath = detaillog_folder+"\\framesize_roiin.log"
+	detailframesize_file = open(detailframesize_filepath,'w')
+	for size in roiin_sizes:
+		detailframesize_file.write("%s\n" % size)
+
+	ffmpeg_args = ".\\tools\\ffmpeg.exe -i "+output_h264_filepath+" -c:v rawvideo -pix_fmt yuv420p "+output_yuv_filepath
+	s = subprocess.Popen(ffmpeg_args, shell=True, stdout=subprocess.PIPE)
+	out = s.communicate()
+
+	ssim_args = ".\\tools\\psnr.exe 1280 720 420 "+input_yuv_filepath+" "+output_yuv_filepath+" ssim"
+	s = subprocess.Popen(ssim_args, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	out = s.communicate()
+
+	roiin_ssims = out[0].split('\r\n')
+	detailssim_filepath = detaillog_folder+"\\ssim_roiin.log"
+	detailssim_file = open(detailssim_filepath,'w')
+	for ssim in roiin_ssims:
+		detailssim_file.write("%s\n" % ssim)
+
+	roiin_average_ssim = np.mean([float(ssim) for ssim in roiin_ssims[:-1]])
+	print vbr_average_ssim
+	averagessim_matrix[0][total_exp_num] = roiin_average_ssim
+
+	os.remove(output_yuv_filepath)
 
 	np.savetxt(game_folder+"\\time.csv",averagetime_matrix,delimiter=",",fmt="%.5f")
 	np.savetxt(game_folder+"\\ssim.csv",averagessim_matrix,delimiter=",",fmt="%.5f")
